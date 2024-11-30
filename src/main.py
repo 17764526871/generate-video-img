@@ -7,9 +7,8 @@ import multiprocessing
 from tqdm import tqdm
 
 # 添加模块路径到系统路径中
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-# 导入所需模块（使用绝对路径）
 from src.config_loader import load_config
 from src.file_list_generator.index import generate_file_list
 from src.logging_setup.index import setup_logging
@@ -17,10 +16,10 @@ from src.thumbnail_generator.index import make_thumb
 from src.video_utils.index import is_video_file, get_video_duration, get_capture_delay_time, get_file_prefix
 
 # 加载配置文件
-config = load_config('config/config.ini')
+config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'config.ini')
+config = load_config(config_path)
 
 # General 配置
-
 file_path = config.get('General', 'file_path', fallback=os.getcwd())
 recursive = config.getboolean('General', 'recursive', fallback=False)
 
@@ -78,10 +77,12 @@ def main():
     logging.getLogger().setLevel(args.log_level)
 
     # 计算任务总数并生成文件列表
+    logging.info(f"开始扫描文件路径: {args.file_path} (递归: {'是' if args.recursive else '否'})")
     file_list = generate_file_list(args)
     total_tasks = len(file_list)
 
     if total_tasks == 0:
+        logging.warning("未找到任何符合条件的视频文件。")
         logging.info("未找到任何符合条件的视频文件。请检查文件路径和文件类型配置。")
     else:
         logging.info(f"找到 {total_tasks} 个视频文件。开始生成缩略图...")
@@ -89,13 +90,14 @@ def main():
     # 并行生成缩略图，使用进度条显示
     with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
         futures = {executor.submit(make_thumb, file_info, args, total_tasks): file_info for file_info in file_list}
-        with tqdm(total=total_tasks, desc="生成缩略图进度") as pbar:
+        with tqdm(total=total_tasks, desc="生成缩略图进度", dynamic_ncols=True, leave=True) as pbar:
             for future in as_completed(futures):
-                pbar.update(1)
                 try:
                     future.result()  # 捕获可能的异常
+                    pbar.update(1)
                 except Exception as e:
                     logging.error(f"处理文件 {futures[future]} 时出错: {e}")
+                    pbar.update(1)
 
 if __name__ == "__main__":
     main()
