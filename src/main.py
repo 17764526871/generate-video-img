@@ -20,6 +20,7 @@ from src.video_utils.index import is_video_file, get_video_duration, get_capture
 config = load_config('config/config.ini')
 
 # General 配置
+
 file_path = config.get('General', 'file_path', fallback=os.getcwd())
 recursive = config.getboolean('General', 'recursive', fallback=False)
 
